@@ -6,6 +6,8 @@ import googlebooks
 from pprint import pprint
 import os
 
+from audiobookorganizer.Organizer import App
+
 def googleapi():
 
     api = googlebooks.Api()
@@ -16,7 +18,7 @@ def googleapi():
     if list["totalItems"] == 1:
         print(f'Title: {list["items"][0]["volumeInfo"]["title"]}')
         print(f'Author: {list["items"][0]["volumeInfo"]["authors"][0]}')
-        print(f'Description: {list["items"][0]["volumeInfo"]["categories"]}')
+        print(f'Categories: {list["items"][0]["volumeInfo"]["categories"]}')
         print(f'Description: {list["items"][0]["volumeInfo"]["description"]}')
         print(f'ISBN_13: {list["items"][0]["volumeInfo"]["industryIdentifiers"][0]["identifier"]}')
         print(f'Cover: {list["items"][0]["volumeInfo"]["imageLinks"]["thumbnail"]}')
@@ -38,6 +40,7 @@ def goodreads():
     gc = client.GoodreadsClient( "", "")
     book = gc.book(1)
     print(book)
+
 
 def audible():
     import audible
@@ -124,7 +127,7 @@ def filetype(file):
         return (os.path.splitext(file)[1], None)
 
 def iterate():
-    path = '\\\\10.1.1.210\media\\audio\\audio_books'
+    path = '\\10.1.1.210\media\audio\audio_books'
 
     import os
     # path = "./TEST"
@@ -141,8 +144,13 @@ def iterate():
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     # googleapi()
-    audible()
+    # audible()
     # tagread("\\\\10.1.1.210\media\\audio\\audio_books\\Dennis E. Taylor\\Bobiverse\\Ich bin viele\\Ich bin viele Bobiverse 1 - 001.mp3")
     # tagread("data/Kapitel 1.m4b")
     # iterate()
+
+    app = App()
+
+    app.run()
+
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
