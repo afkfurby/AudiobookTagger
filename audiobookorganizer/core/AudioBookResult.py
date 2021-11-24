@@ -1,3 +1,4 @@
+from datetime import datetime
 
 class AudioBookResult:
 
@@ -43,6 +44,10 @@ class AudioBookResult:
 
     @staticmethod
     def from_googlebooks(result):
+        from datetime import datetime
+
+        dt = datetime.strptime(result["volumeInfo"]["publishedDate"], '%Y-%m-%d')
+
         return AudioBookResult(
             result["volumeInfo"]["title"],
             result["volumeInfo"]["authors"][0],
@@ -53,7 +58,7 @@ class AudioBookResult:
             all_authors=result["volumeInfo"]["authors"],
             subtitle=result["volumeInfo"]["subtitle"],
             publisher=result["volumeInfo"]["publisher"],
-            publishedDate=result["volumeInfo"]["publishedDate"],
+            publishedDate=dt.year,
             rawData=result
         )
 
