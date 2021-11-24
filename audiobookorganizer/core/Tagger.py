@@ -23,15 +23,43 @@ class FileMetadata:
 
     }
 
+    UPDATABLE_TAGS = ["author", "title", "subtitle", "publisher", "year", "narrator", "description", "genres", "series", "volume"]
+
     def __init__(self, filepath):
         self.file = music_tag.load_file(filepath)
+        self.new_metadata = {}
+        for tag in FileMetadata.UPDATABLE_TAGS:
+            self.new_metadata[tag] = self.get(tag)
 
     def _check_missing_tags(self):
         for key, value in self.TAGMAP.items():
             print(self.file[value])
 
-    def get(self, tagname):
+    def update(self, tagname, value):
 
+        if value is not None or str(value) != "":
+            if self._get(tagname) is None or str(self._get(tagname)) == "":
+                if isinstance(value, list):
+                    if tagname == "author":
+                        self.set(tagname, value[0])
+                    elif tagname == "genres":
+                        genres = self._get(tagname)
+                        for item in value:
+                            genres += ";" + item
+
+                        self.set(tagname, genres)
+            else:
+                self.set(tagname, value)
+
+
+
+    def set(self, tagname, value):
+        self.new_metadata[tagname] = value
+
+    def _get(self, tagname):
+        return self.new_metadata[tagname]
+
+    def get(self, tagname):
         if tagname in FileMetadata.TAGMAP:
             # return self.file[FileMetadata.TAGMAP[tagname]]
             if isinstance(FileMetadata.TAGMAP[tagname], list):
@@ -52,3 +80,8 @@ class FileMetadata:
             return None
 
 
+    def save(self):
+        for key, value in self.new_metadata.items():
+            self.file[key] = value
+
+        self.file.save()

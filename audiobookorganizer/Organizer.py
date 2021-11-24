@@ -113,11 +113,25 @@ class App:
 
                 ui.info_table(data, headers=headers)
 
+                for item in FileMetadata.UPDATABLE_TAGS:
+                    metadata.update(item, results.get(item))
+
+                metadict = metadata.new_metadata
+
                 for file in f_names:
-                    print(root, file)
+                    # print(root, file)
                     # print(filetype(file))
+                    if get_filetype(os.path.join(root, file))[0] == "audio":
+                        metaobj = FileMetadata(os.path.join(root, file))
+                        metaobj.new_metadata = metadict
+                        metaobj.save()
                 # tagread(os.path.join(root))
                 # print(root, d_names, f_names)
+
+    def _update_metatags(self):
+        file = get_first_audio_file(root, f_names)
+        file = music_tag.load_file(file)
+        metadata = FileMetadata(os.path.join(root, file))
 
     def run(self):
         ui.setup(color="always")
