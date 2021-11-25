@@ -1,6 +1,8 @@
 import os
 import sys
 
+import music_tag
+
 from audiobookorganizer.core.Tagger import FileMetadata
 from audiobookorganizer.core.Utils import has_subfolders, get_filetype, get_folders_from_path, get_first_audio_file
 from audiobookorganizer.metadata.GoogleBooks import Provider as GoogleBooksProvider
@@ -11,6 +13,7 @@ class App:
     _VERSION = "0.0.1 alpha"
 
     _MENU_ITEM_CHECK_TAGS = "Check for missing Tags"
+    _MENU_ITEM_ORGANIZE = "Organize Audiobooks ins Folders"
     _MENU_ITEM_EXIT = "Exit"
 
     def __init__(self, source="", destination=None):
@@ -20,15 +23,20 @@ class App:
     def main_menu(self):
         tasks = [
             App._MENU_ITEM_CHECK_TAGS,
+            App._MENU_ITEM_ORGANIZE,
             App._MENU_ITEM_EXIT
         ]
         choice = ui.ask_choice("Choose a task", choices=tasks)
 
         if choice is None:
-            ui.error("Please select a task")
-            self.main_menu()
-        elif choice == App._MENU_ITEM_CHECK_TAGS:
+            # ui.error("Please select a task")
+            # self.main_menu()
+            choice = App._MENU_ITEM_ORGANIZE
+
+        if choice == App._MENU_ITEM_CHECK_TAGS:
             self.check_tags()
+        elif choice == App._MENU_ITEM_ORGANIZE:
+            self.organize()
         elif choice == App._MENU_ITEM_EXIT:
             print(choice)
 
@@ -36,6 +44,7 @@ class App:
         path = ui.ask_string("Enter path to your audiobooks")
         if path is None:
             path = "\\\\10.1.1.210\\media\\audio\\audio_books"
+            path = "C:\\Users\\Vital\\OpenAudible\\books"
         ui.info("Checking tags in", ui.bold, path)
 
         for root, d_names, f_names in os.walk(path):
@@ -128,10 +137,32 @@ class App:
                 # tagread(os.path.join(root))
                 # print(root, d_names, f_names)
 
-    def _update_metatags(self):
-        file = get_first_audio_file(root, f_names)
-        file = music_tag.load_file(file)
-        metadata = FileMetadata(os.path.join(root, file))
+    # def _update_metatags(self):
+    #     file = get_first_audio_file(root, f_names)
+    #     file = music_tag.load_file(file)
+    #     metadata = FileMetadata(os.path.join(root, file))
+
+    def _walk_path(self, path):
+        for root, d_names, f_names in os.walk(path):
+            if not has_subfolders(root):  # no more subfolders, here should
+                folders = self._get_folders_from_path(root, path)
+                i
+                print(folders)
+
+    def _iterate_files(self, files):
+        for file in files:
+            pass
+
+    def _get_folders_from_path(self, root, path):
+        folder = root.replace(path + "\\", "")
+        return get_folders_from_path(folder)
+
+    def organize(self):
+        default_path = "\\\\10.1.1.210\\media\\audio\\audio_books"
+        default_path = "C:\\Users\\Vital\\OpenAudible\\books"
+        path = ui.ask_string("Enter path to your audiobooks", default=default_path)
+        ui.info("Checking tags in", ui.bold, path)
+        self._walk_path(path)
 
     def run(self):
         ui.setup(color="always")
