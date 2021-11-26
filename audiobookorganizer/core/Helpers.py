@@ -95,8 +95,9 @@ class MetadataDict(UserDict):
                         self._changed = True
                         super().__setitem__(item, super().__getitem__(item).append(value))
                 else:
-                    self._changed = True
-                    super().__setitem__(item, [super().__getitem__(item)] + value)
+                    if value is not None:
+                        self._changed = True
+                        super().__setitem__(item, [super().__getitem__(item)] + value)
 
                 self._changed = True
         else:
@@ -153,33 +154,45 @@ class MetadataDict(UserDict):
         result = metadataprovider.search(author=author, title=title,
                                                getfirst=True, rawresult=True)
 
-        from datetime import datetime
-        from PIL import Image
-        from io import BytesIO
-        import requests
-        response = requests.get(result["volumeInfo"]["imageLinks"]["thumbnail"])
-        cover = Image.open(BytesIO(response.content))
+        if result is not None:
+            from datetime import datetime
 
-        dt = datetime.strptime(result["volumeInfo"]["publishedDate"], '%Y-%m-%d')
+            try:
+                from PIL import Image
+                from io import BytesIO
+                import requests
+                response = requests.get(result["volumeInfo"]["imageLinks"]["thumbnail"])
+                cover = Image.open(BytesIO(response.content))
+            except:
+                cover = None
 
-        return MetadataDict({
-            "Title": result["volumeInfo"]["title"],
-            "Subtitle": result["volumeInfo"]["subtitle"],
-            "Author": result["volumeInfo"]["authors"][0],
-            # "Narrator": None,
-            "Publisher": result["volumeInfo"]["publisher"],
-            "Year": dt.year,
-            "Description": result["volumeInfo"]["description"],
-            "Genres": result["volumeInfo"]["categories"],
-            "Series": result["volumeInfo"]["series"],
-            "Volume": result["volumeInfo"]["volume"],
-            "Cover": [cover],
-            # "tracknumber": None,
-            # "totaltracks": None,
-            # "discnumber": None,
-            # "totaldiscs": None,
-            "isbn13": result["volumeInfo"]["industryIdentifiers"][0]["identifier"]
-        })
+            try:
+                dt = datetime.strptime(result["volumeInfo"]["publishedDate"], '%Y-%m-%d')
+                year = dt.year
+            except:
+                year = None
+
+            return MetadataDict({
+                "Title": safeget(result["volumeInfo"], "title"),
+                "Subtitle": safeget(result["volumeInfo"], "subtitle"),
+                "Author": safeget(result["volumeInfo"], "authors")[0],
+                # "Narrator": None,
+                "Publisher": safeget(result["volumeInfo"], "publisher"),
+                "Year": year,
+                "Description": safeget(result["volumeInfo"], "description"),
+                "Genres": safeget(result["volumeInfo"], "categories"),
+                "Series": safeget(result["volumeInfo"], "series"),
+                "Volume": safeget(result["volumeInfo"], "volume"),
+                "Cover": [cover],
+                # "tracknumber": None,
+                # "totaltracks": None,
+                # "discnumber": None,
+                # "totaldiscs": None,
+                "isbn13": safeget(result["volumeInfo"], "industryIdentifiers")[0]["identifier"]
+            })
+
+        else:
+            return MetadataDict()
 
     @staticmethod
     def from_file(file, defaults=None):
@@ -231,3 +244,8 @@ class MetadataDict(UserDict):
         f.save()
 
 
+def safeget(stack, key):
+    try:
+        return stack[key]
+    except:
+        return None
