@@ -40,7 +40,7 @@ class Provider(MetadataProvider):
         # import urllib.request
         resp = urllib.request.urlopen(self._APIURL + path + command)
 
-        # print("call to: " + self._APIURL + path + command)
+        print("call to: " + self._APIURL + path + command)
         # resp = requests.get(self._APIURL + path + requests.utils.quote(command))
         # resp = requests.utils.quote(self._APIURL + path + command)
         # 'test%2Buser%40gmail.com'
@@ -148,7 +148,7 @@ class Provider(MetadataProvider):
 
         q += "" if isbn is None else f'+isbn:{isbn}' if len(q) > 0 else f'isbn:{isbn}'
 
-        # print(f'Search String={q}')
+        print(f'Search String={q}')
 
         return q
 
@@ -199,37 +199,75 @@ class Provider(MetadataProvider):
         )
 
         if results["totalItems"] > 0:
-            books = []
-            if not getfirst:
-                if not rawresult:
-                    for item in results["items"]:
-                        books.append(AudioBookResult.from_googlebooks(item))
-
-                    return books
-                else:
-                    return results["items"]
-            else:
-                book = None
-
-                if not rawresult:
-                    for item in results["items"]:
-                        if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
-                            book = AudioBookResult.from_googlebooks(item)
-
-                    if book is None:
-                        book = AudioBookResult.from_googlebooks(results["items"][0])
-
-                    seriesInfo = self._get_series_from_googlebooks(book._rawData['id'])
-                    book.set('series', seriesInfo['series'])
-                    book.set('volume', seriesInfo['volume'])
-
-                    return book
-                else:
-                    for item in results["items"]:
-                        if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
-                            series_info = self._get_series_from_googlebooks(item['id'])
-                            item["volumeInfo"]["series"] = series_info['series']
-                            item["volumeInfo"]["volume"] = series_info['series']
-                            return item
+            return self._handle_results(results, getfirst, rawresult)
+            # books = []
+            # if not getfirst:
+            #     if not rawresult:
+            #         for item in results["items"]:
+            #             books.append(AudioBookResult.from_googlebooks(item))
+            #
+            #         return books
+            #     else:
+            #         return results["items"]
+            # else:
+            #     book = None
+            #
+            #     if not rawresult:
+            #         for item in results["items"]:
+            #             if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
+            #                 book = AudioBookResult.from_googlebooks(item)
+            #
+            #         if book is None:
+            #             book = AudioBookResult.from_googlebooks(results["items"][0])
+            #
+            #         seriesInfo = self._get_series_from_googlebooks(book._rawData['id'])
+            #         book.set('series', seriesInfo['series'])
+            #         book.set('volume', seriesInfo['volume'])
+            #
+            #         return book
+            #     else:
+            #         for item in results["items"]:
+            #             if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
+            #                 series_info = self._get_series_from_googlebooks(item['id'])
+            #                 item["volumeInfo"]["series"] = series_info['series']
+            #                 item["volumeInfo"]["volume"] = series_info['series']
+            #                 return item
         else:
-            return list()
+            lang="en"
+            return self.search(self, q, author, title, isbn, lang, show_preorders, getfirst, grabseries, rawresult)
+
+
+    def _handle_results(self, results, getfirst, rawresult):
+        books = []
+        if not getfirst:
+            if not rawresult:
+                for item in results["items"]:
+                    books.append(AudioBookResult.from_googlebooks(item))
+
+                return books
+            else:
+                return results["items"]
+        else:
+            book = None
+
+            if not rawresult:
+                for item in results["items"]:
+                    if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
+                        book = AudioBookResult.from_googlebooks(item)
+
+                if book is None:
+                    book = AudioBookResult.from_googlebooks(results["items"][0])
+
+                seriesInfo = self._get_series_from_googlebooks(book._rawData['id'])
+                book.set('series', seriesInfo['series'])
+                book.set('volume', seriesInfo['volume'])
+
+                return book
+            else:
+                for item in results["items"]:
+                    if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
+                        series_info = self._get_series_from_googlebooks(item['id'])
+                        item["volumeInfo"]["series"] = series_info['series']
+                        item["volumeInfo"]["volume"] = series_info['series']
+                        return item
+
