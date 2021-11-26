@@ -9,7 +9,9 @@ from audiobookorganizer.core.MetadataProvider import MetadataProvider
 from audiobookorganizer.core.Utils import get_series_from_googlebooks
 
 import urllib
-
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
+import re
 
 class Provider(MetadataProvider):
     _APIURL = 'https://www.googleapis.com/books/v1'
@@ -38,7 +40,7 @@ class Provider(MetadataProvider):
         # import urllib.request
         resp = urllib.request.urlopen(self._APIURL + path + command)
 
-        print("call to: " + self._APIURL + path + command)
+        # print("call to: " + self._APIURL + path + command)
         # resp = requests.get(self._APIURL + path + requests.utils.quote(command))
         # resp = requests.utils.quote(self._APIURL + path + command)
         # 'test%2Buser%40gmail.com'
@@ -146,11 +148,44 @@ class Provider(MetadataProvider):
 
         q += "" if isbn is None else f'+isbn:{isbn}' if len(q) > 0 else f'isbn:{isbn}'
 
-        print(f'Search String={q}')
+        # print(f'Search String={q}')
 
         return q
 
-    def search(self, q="", author=None, title=None, isbn=None, lang=None, show_preorders=False, getfirst=False, grabseries=True):
+    def _get_series_from_googlebooks(self, bookid):
+        try:
+            page = urlopen("https://books.google.ch/books?id=" + bookid)
+        except:
+            print("Error opening the URL")
+
+        soup = BeautifulSoup(page, 'html.parser')
+
+        # content = soup.find('a', {"class": "story-body sp-story-body gel-      body-copy"})
+
+        content = soup.find("a", href=re.compile(r"bibliogroup"))
+        # test2 = soup.find_all("a", href=lambda href: href and "bibliogroup" in href)
+        # test3 = soup.select('a[href*="bibliogroup"]')
+
+        if content is not None:
+            elements = content.findAll('span')
+        else:
+            volume, series = None, None
+
+        # for i in content.findAll('span'):
+        #     print(i.text.split(" von "))
+        if content is not None and len(elements) > 0:
+            element = content.findAll('span')[0]
+            # parts = re.split('( [a-z]* )', element.text, 1)
+            volume, trash, series = re.split('( [a-z]* )', element.text, 1)
+            del trash
+            volume = volume.split(" ")[1]
+
+        return {
+            "volume": volume,
+            "series": series,
+        }
+
+    def search(self, q="", author=None, title=None, isbn=None, lang=None, show_preorders=False, getfirst=False, grabseries=True, rawresult=False):
         if lang is None:
             lang = self.lang
 
@@ -166,24 +201,35 @@ class Provider(MetadataProvider):
         if results["totalItems"] > 0:
             books = []
             if not getfirst:
-                for item in results["items"]:
-                    books.append(AudioBookResult.from_googlebooks(item))
+                if not rawresult:
+                    for item in results["items"]:
+                        books.append(AudioBookResult.from_googlebooks(item))
 
                     return books
+                else:
+                    return results["items"]
             else:
                 book = None
 
-                for item in results["items"]:
-                    if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
-                        book = AudioBookResult.from_googlebooks(item)
+                if not rawresult:
+                    for item in results["items"]:
+                        if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
+                            book = AudioBookResult.from_googlebooks(item)
 
-                if book is None:
-                    book = AudioBookResult.from_googlebooks(results["items"][0])
+                    if book is None:
+                        book = AudioBookResult.from_googlebooks(results["items"][0])
 
-                seriesInfo = get_series_from_googlebooks(book._rawData['id'])
-                book.set('series', seriesInfo['series'])
-                book.set('volume', seriesInfo['volume'])
+                    seriesInfo = self._get_series_from_googlebooks(book._rawData['id'])
+                    book.set('series', seriesInfo['series'])
+                    book.set('volume', seriesInfo['volume'])
 
-                return book
+                    return book
+                else:
+                    for item in results["items"]:
+                        if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
+                            series_info = self._get_series_from_googlebooks(item['id'])
+                            item["volumeInfo"]["series"] = series_info['series']
+                            item["volumeInfo"]["volume"] = series_info['series']
+                            return item
         else:
             return list()

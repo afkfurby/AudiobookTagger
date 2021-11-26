@@ -10,3 +10,5 @@ urllib3==1.26.7
 goodreads
 audible
 cli-ui
+
+beautifulsoup4~=4.10.0
