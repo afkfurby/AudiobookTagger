@@ -3,6 +3,9 @@ import sys
 
 import music_tag
 
+from pathlib import Path
+
+from audiobookorganizer.core.Helpers import MetadataDict
 from audiobookorganizer.core.Tagger import FileMetadata
 from audiobookorganizer.core.Utils import has_subfolders, get_filetype, get_folders_from_path, get_first_audio_file
 from audiobookorganizer.metadata.GoogleBooks import Provider as GoogleBooksProvider
@@ -26,7 +29,7 @@ class App:
             App._MENU_ITEM_ORGANIZE,
             App._MENU_ITEM_EXIT
         ]
-        choice = ui.ask_choice("Choose a task", choices=tasks)
+        choice = ui.ask_choice("Choose a task [" + App._MENU_ITEM_ORGANIZE + "]", choices=tasks)
 
         if choice is None:
             # ui.error("Please select a task")
@@ -144,12 +147,45 @@ class App:
 
     def _walk_path(self, path):
         for root, d_names, f_names in os.walk(path):
-            if not has_subfolders(root):  # no more subfolders, here should
-                folders = self._get_folders_from_path(root, path)
-                i
-                print(folders)
+            if not has_subfolders(root):  # no more subfolders, here should be audio files
+                if root == path:
+                    # no folders, just files
+                    for file in f_names:
+                        filemeta = MetadataDict.from_file(os.path.join(root, file))
+                        gbmeta = MetadataDict.from_googlebooks(filemeta.Author, filemeta.Title)
+                        # print(filemeta)
+                        # print(gbmeta)
+                        filemeta.update(gbmeta)
+                        print(filemeta)
 
-    def _iterate_files(self, files):
+                        # print(f'filemeta has changed? { filemeta.has_changed()}')
+                        filemeta.save_to_file()
+                        self._generate_folder_structure(root, file, filemeta)
+
+                else:  # folder structure
+                    folders = self._get_folders_from_path(root, path)
+
+                    print(folders)
+
+    def _generate_folder_structure(self, path, file, metadata, save_cover=True, move=True):  # if move=False, file will be copied
+
+        if metadata.Series is None:
+            fullpath = os.path.join(path, metadata.Author, metadata.Title)
+        else:
+            fullpath = os.path.join(path, metadata.Author, metadata.Series, metadata.Title)
+
+        Path(fullpath).mkdir(parents=True, exist_ok=True)
+
+        if save_cover:
+            metadata.export_cover(fullpath, case_sensitive=True)  # save cover file
+
+        if move:
+            os.rename(os.path.join(path, file), os.path.join(fullpath, file))
+        else:
+            import shutil
+            shutil.copy2(os.path.join(path, file), os.path.join(fullpath, file))
+
+    def _iterate_files(self, files, callback):
         for file in files:
             pass
 
@@ -160,6 +196,7 @@ class App:
     def organize(self):
         default_path = "\\\\10.1.1.210\\media\\audio\\audio_books"
         default_path = "C:\\Users\\Vital\\OpenAudible\\books"
+        default_path = "C:\\PyCharmProjects\\googlebooks\\data"
         path = ui.ask_string("Enter path to your audiobooks", default=default_path)
         ui.info("Checking tags in", ui.bold, path)
         self._walk_path(path)
