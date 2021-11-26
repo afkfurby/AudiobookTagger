@@ -1,6 +1,7 @@
 import json
 
 import requests
+import urllib3
 from requests.utils import requote_uri
 
 from audiobookorganizer.core.AudioBookResult import AudioBookResult
@@ -38,7 +39,24 @@ class Provider(MetadataProvider):
 
         # resp = requests.get(self._APIURL + path + command)
         # import urllib.request
-        resp = urllib.request.urlopen(self._APIURL + path + command)
+        # resp = urllib.request.urlopen(self._APIURL + path + command)
+
+        http = urllib3.PoolManager()
+        # resp = http.request("GET", self._APIURL + path + command)
+
+        # http.urlopen("")
+
+        resp = http.urlopen(
+            "GET",
+            self._APIURL + path + command
+        )
+        # resp = http.urllib3.request(
+        #     "GET",
+        #     self._APIURL + path,
+        #     fields={
+        #         "q": 'intitle:Totengräber',
+        #     }
+        # )
 
         print("call to: " + self._APIURL + path + command)
         # resp = requests.get(self._APIURL + path + requests.utils.quote(command))
@@ -47,8 +65,8 @@ class Provider(MetadataProvider):
 
 
 
-        if resp.getcode() == 200:
-            return json.loads(resp.read())
+        if resp.status == 200:
+            return json.loads(resp.data.decode('utf8'))
 
         return resp
 
@@ -138,17 +156,26 @@ class Provider(MetadataProvider):
 
         return self._get(path, params)
 
+    def _quote(self, string):
+        return string.replace(" ", "%20")
+
     def _build_search_string(self, q="", author=None, title=None, isbn=None):
-        author = urllib.parse.quote(str(author))
-        title = urllib.parse.quote(str(title))
+        # author = urllib.parse.quote(str(author))
+        # title = urllib.parse.quote(str(title))
 
-        q += "" if author is None else f'+inauthor:"{author}"' if len(q) > 0 else f'inauthor:"{author}"'
+        author = u'' + self._quote(author) # custom quote (only whitespace) because every library fucks something up
+        title = u'' + self._quote(title)
 
-        q += "" if title is None else f'+intitle:"{title}"' if len(q) > 0 else f'intitle:"{title}"'
+        author = author.encode("utf-8")
+        title = title.encode("utf-8")
+
+        q += "" if author is None else f'+inauthor:"{author.decode()}"' if len(q) > 0 else f'inauthor:"{author.decode()}"'
+
+        q += "" if title is None else f'+intitle:"{title.decode()}"' if len(q) > 0 else f'intitle:"{title.decode()}"'
 
         q += "" if isbn is None else f'+isbn:{isbn}' if len(q) > 0 else f'isbn:{isbn}'
 
-        print(f'Search String={q}')
+        # print(f'Search String={q}')
 
         return q
 
@@ -189,14 +216,36 @@ class Provider(MetadataProvider):
         if lang is None:
             lang = self.lang
 
+        self._title = title
+
         kwargs = {}
         if lang: kwargs["langRestrict"] = lang
         if show_preorders: kwargs["showPreorders"] = show_preorders
 
+        # results = self._get_results(
+        #     self._build_search_string(q=q, author=author, title=title, isbn=isbn),
+        #     args=kwargs
+        # )
         results = self._get_results(
             self._build_search_string(q=q, author=author, title=title, isbn=isbn),
             args=kwargs
         )
+
+        if results["totalItems"] == 0:  # nothing found, try improving
+            author = author  # this should always be correct
+            title_fragments = title.split(" ")
+
+            for i in range(len(title_fragments)):
+                ql = list()
+                ql.append(title_fragments.pop())
+
+                results = self._get_results(
+                    self._build_search_string(q=self._join(ql), author=author, title=self._join(title_fragments), isbn=isbn),
+                    args=kwargs
+                )
+
+                if results["totalItems"] > 0:
+                    break
 
         if results["totalItems"] > 0:
             return self._handle_results(results, getfirst, rawresult)
@@ -233,11 +282,20 @@ class Provider(MetadataProvider):
             #                 item["volumeInfo"]["volume"] = series_info['series']
             #                 return item
         else:
-            lang="en"
-            return self.search(self, q, author, title, isbn, lang, show_preorders, getfirst, grabseries, rawresult)
+            if lang != "en":
+                lang = "en"
+                return self.search(q, author, title, isbn, lang, show_preorders, getfirst, grabseries, rawresult)
+            else:
+                return None
 
+    def _join(self, l, s=" "):
+        if isinstance(l, list):
+            return s.join(l)
+        else:
+            return l
 
     def _handle_results(self, results, getfirst, rawresult):
+        # TODO: fix this
         books = []
         if not getfirst:
             if not rawresult:
@@ -264,10 +322,29 @@ class Provider(MetadataProvider):
 
                 return book
             else:
-                for item in results["items"]:
-                    if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
-                        series_info = self._get_series_from_googlebooks(item['id'])
-                        item["volumeInfo"]["series"] = series_info['series']
-                        item["volumeInfo"]["volume"] = series_info['series']
-                        return item
+                if len(results["items"]) > 1:
+                    for item in results["items"]:
+                        if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
+                            series_info = self._get_series_from_googlebooks(item['id'])
+                            item["volumeInfo"]["series"] = series_info['series']
+                            item["volumeInfo"]["volume"] = series_info['series']
+                            return item
+                else:
+                    from difflib import SequenceMatcher
+                    def similar(a, b):
+                        return SequenceMatcher(None, a, b).ratio()
+
+                    best_match_ratio = 0.0
+                    best_match = None
+
+                    for item in results["items"]:
+                        ratio = similar(item["volumeInfo"]["title"], self._title)
+                        if ratio > best_match_ratio:
+                            best_match_ratio = ratio
+                            best_match = item
+
+                    series_info = self._get_series_from_googlebooks(best_match['id'])
+                    best_match["volumeInfo"]["series"] = series_info['series']
+                    best_match["volumeInfo"]["volume"] = series_info['series']
+                    return best_match
 

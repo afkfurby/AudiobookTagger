@@ -145,45 +145,56 @@ class App:
     #     file = music_tag.load_file(file)
     #     metadata = FileMetadata(os.path.join(root, file))
 
-    def _walk_path(self, path):
+    def _walk_path(self, path, dryrun=True):
         for root, d_names, f_names in os.walk(path):
             if not has_subfolders(root):  # no more subfolders, here should be audio files
                 if root == path:
                     # no folders, just files
                     for file in f_names:
-                        filemeta = MetadataDict.from_file(os.path.join(root, file))
-                        gbmeta = MetadataDict.from_googlebooks(filemeta.Author, filemeta.Title)
-                        # print(filemeta)
-                        # print(gbmeta)
-                        filemeta.update(gbmeta)
-                        print(filemeta)
+                        if get_filetype(os.path.join(root, file))[0] == "audio":
+                            filemeta = MetadataDict.from_file(os.path.join(root, file))
+                            gbmeta = MetadataDict.from_googlebooks(filemeta.Author, filemeta.Title)
+                            # print(filemeta)
+                            # print(gbmeta)
+                            filemeta.update(gbmeta)
+                            print(filemeta)
 
-                        # print(f'filemeta has changed? { filemeta.has_changed()}')
-                        filemeta.save_to_file()
-                        self._generate_folder_structure(root, file, filemeta)
+                            # print(f'filemeta has changed? { filemeta.has_changed()}')
+                            if not dryrun:
+                                filemeta.save_to_file()
+
+                            self._generate_folder_structure(root, file, filemeta, dryrun=dryrun)
 
                 else:  # folder structure
                     folders = self._get_folders_from_path(root, path)
 
                     print(folders)
 
-    def _generate_folder_structure(self, path, file, metadata, save_cover=True, move=True):  # if move=False, file will be copied
+    def _generate_folder_structure(self, path, file, metadata, save_cover=True, move=True, dryrun=True):  # if move=False, file will be copied
 
         if metadata.Series is None:
             fullpath = os.path.join(path, metadata.Author, metadata.Title)
         else:
             fullpath = os.path.join(path, metadata.Author, metadata.Series, metadata.Title)
 
-        Path(fullpath).mkdir(parents=True, exist_ok=True)
+        if not dryrun:
+            Path(fullpath).mkdir(parents=True, exist_ok=True)
 
-        if save_cover:
+        if save_cover and not dryrun:
             metadata.export_cover(fullpath, case_sensitive=True)  # save cover file
 
         if move:
-            os.rename(os.path.join(path, file), os.path.join(fullpath, file))
+            if not dryrun:
+                os.rename(os.path.join(path, file), os.path.join(fullpath, file))
+            else:
+                ui.warning("[DRYRUN] move ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green, os.path.join(fullpath, file))
         else:
             import shutil
-            shutil.copy2(os.path.join(path, file), os.path.join(fullpath, file))
+            if not dryrun:
+                shutil.copy2(os.path.join(path, file), os.path.join(fullpath, file))
+            else:
+                ui.warning("[DRYRUN] copy ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green,
+                       os.path.join(fullpath, file))
 
     def _iterate_files(self, files, callback):
         for file in files:
@@ -197,6 +208,7 @@ class App:
         default_path = "\\\\10.1.1.210\\media\\audio\\audio_books"
         default_path = "C:\\Users\\Vital\\OpenAudible\\books"
         default_path = "C:\\PyCharmProjects\\googlebooks\\data"
+        default_path = "\\\\10.1.1.210\\media\\audio\\audio_books_audible"
         path = ui.ask_string("Enter path to your audiobooks", default=default_path)
         ui.info("Checking tags in", ui.bold, path)
         self._walk_path(path)

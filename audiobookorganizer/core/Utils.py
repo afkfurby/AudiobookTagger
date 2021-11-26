@@ -17,10 +17,21 @@ def has_subfolders(path_to_parent):
 def get_filetype(file):
     mt = mimetypes.guess_type(file)
 
+    audiotypes = ["m4b"]
+
+    filename, file_extension = os.path.splitext(file)
+
+
     if mt and mt[0] is not None:
         return tuple(mt[0].split("/"))
     else:
-        return os.path.splitext(file)[1], None
+        if mt is not None:
+            # return os.path.splitext(file)[1], None
+            if file_extension[1:] in audiotypes:
+                return ("audio", file_extension[1:])
+            else:
+                return (None, None)
+    return (None, None)
 
 
 def get_folders_from_path(path):
