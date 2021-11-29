@@ -145,7 +145,35 @@ class App:
     #     file = music_tag.load_file(file)
     #     metadata = FileMetadata(os.path.join(root, file))
 
-    def _walk_path(self, path, dryrun=True):
+    def _show_changes_table(self, meta_orig, meta_new):
+        headers = ["Tag", "File", "New"]
+        data = []
+
+        for key in FileMetadata.UPDATABLE_TAGS:
+            if meta_new.has_changed():  # has metadata changed at all?
+                if meta_orig[key] != meta_new[key]:  # is this tag different than before? (Maybe keep track of changed tags inside MetadataDict)
+                    data.append((
+                        (
+                            ui.bold,    # color col1
+                            key         # value col1
+                        ),  # col1
+                        (
+                            ui.reset,  # color col2
+                            str(meta_orig[key])[:40] + '..' if len(str(meta_orig[key])) > 40 else meta_orig[key]  # value col2
+
+                        ),  # col2
+                        (
+                            ui.green,  # color col2
+                            str(meta_new[key])[:40] + '..' if len(str(meta_new[key])) > 40 else meta_new[key]  # value col2
+                        ),  # col3
+                    ))
+
+        if len(data) > 0:
+            ui.info_table(data, headers=headers)
+        else:
+            ui.info("Book:", meta_orig.Title, "from", meta_orig.Author, "has not changed")
+
+    def _walk_path(self, path, output=None, dryrun=True, confirm_action=True):
         for root, d_names, f_names in os.walk(path):
             if not has_subfolders(root):  # no more subfolders, here should be audio files
                 if root == path:
@@ -153,24 +181,49 @@ class App:
                     for file in f_names:
                         if get_filetype(os.path.join(root, file))[0] == "audio":
                             filemeta = MetadataDict.from_file(os.path.join(root, file))
+                            audiblemeta = MetadataDict.from_audible(filemeta.Author, filemeta.Title)
                             gbmeta = MetadataDict.from_googlebooks(filemeta.Author, filemeta.Title)
                             # print(filemeta)
                             # print(gbmeta)
-                            filemeta.update(gbmeta)
-                            print(filemeta)
+
+                            meta_new = filemeta.copy()
+                            meta_new.update(audiblemeta)
+                            meta_new.update(gbmeta)
+
+                            ui.info("Book:", filemeta.Title, "from", filemeta.Author)
+
+                            self._show_changes_table(filemeta, meta_new)
+
+
+                            # filemeta.update(gbmeta)
+                            # print(filemeta)
+
+
+
+
+
+
+                            if confirm_action:
+                                choice = ui.ask_yes_no("Should I do that?", default=True)
+                                if choice:
+                                    del filemeta
+                                    filemeta = meta_new
+                                else:
+                                    continue
+
 
                             # print(f'filemeta has changed? { filemeta.has_changed()}')
                             if not dryrun:
                                 filemeta.save_to_file()
 
-                            self._generate_folder_structure(root, file, filemeta, dryrun=dryrun)
+                            self._generate_folder_structure(root if output is None else output, file, filemeta, output=output, dryrun=dryrun)
 
                 else:  # folder structure
                     folders = self._get_folders_from_path(root, path)
 
                     print(folders)
 
-    def _generate_folder_structure(self, path, file, metadata, save_cover=True, move=True, dryrun=True):  # if move=False, file will be copied
+    def _generate_folder_structure(self, path, file, metadata, output=None, save_cover=True, move=True, dryrun=True):  # if move=False, file will be copied
 
         if metadata.Series is None:
             fullpath = os.path.join(path, metadata.Author, metadata.Title)
@@ -178,13 +231,19 @@ class App:
             fullpath = os.path.join(path, metadata.Author, metadata.Series, metadata.Title)
 
         if not dryrun:
+            ui.info("Creating path:", fullpath)
             Path(fullpath).mkdir(parents=True, exist_ok=True)
 
         if save_cover and not dryrun:
+            ui.info("Saving metadata to file:")
             metadata.export_cover(fullpath, case_sensitive=True)  # save cover file
+        else:
+            ui.warning("[DRYRUN] saving cover ", ui.green, os.path.join(fullpath, "cover.jpg"))
 
         if move:
             if not dryrun:
+                ui.warning("moving ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green,
+                           os.path.join(fullpath, file))
                 os.rename(os.path.join(path, file), os.path.join(fullpath, file))
             else:
                 ui.warning("[DRYRUN] move ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green, os.path.join(fullpath, file))
@@ -204,14 +263,16 @@ class App:
         folder = root.replace(path + "\\", "")
         return get_folders_from_path(folder)
 
-    def organize(self):
+    def organize(self, dryrun=False, confirm_action=True, outpath=""):
         default_path = "\\\\10.1.1.210\\media\\audio\\audio_books"
         default_path = "C:\\Users\\Vital\\OpenAudible\\books"
         default_path = "C:\\PyCharmProjects\\googlebooks\\data"
         default_path = "\\\\10.1.1.210\\media\\audio\\audio_books_audible"
+        default_output = "\\\\10.1.1.210\\media\\audio\\audible_organized"
         path = ui.ask_string("Enter path to your audiobooks", default=default_path)
+        output = ui.ask_string("Enter path to your output directory", default=default_output)
         ui.info("Checking tags in", ui.bold, path)
-        self._walk_path(path)
+        self._walk_path(path, output=output, dryrun=dryrun, confirm_action=confirm_action)
 
     def run(self):
         ui.setup(color="always")
