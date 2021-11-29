@@ -14,10 +14,13 @@ from urllib.request import urlopen
 from bs4 import BeautifulSoup
 import re
 
+import cli_ui as ui
+
 class Provider(MetadataProvider):
     _APIURL = 'https://www.googleapis.com/books/v1'
 
     def __init__(self, api_key="", lang="de"):
+        ui.setup(color="always")
         super(Provider, self).__init__(api_key, lang)
 
     """
@@ -58,7 +61,8 @@ class Provider(MetadataProvider):
         #     }
         # )
 
-        print("call to: " + self._APIURL + path + command)
+        # print("call to: " + self._APIURL + path + command)
+        ui.debug("GB Call to:", ui.bold, self._APIURL + path + command)
         # resp = requests.get(self._APIURL + path + requests.utils.quote(command))
         # resp = requests.utils.quote(self._APIURL + path + command)
         # 'test%2Buser%40gmail.com'
@@ -205,7 +209,8 @@ class Provider(MetadataProvider):
             # parts = re.split('( [a-z]* )', element.text, 1)
             volume, trash, series = re.split('( [a-z]* )', element.text, 1)
             del trash
-            volume = volume.split(" ")[1]
+            vtmp = volume.split(" ")[1]
+            volume = int(vtmp) if vtmp.isnumeric() else 0
 
         return {
             "volume": volume,
@@ -327,7 +332,7 @@ class Provider(MetadataProvider):
                         if item['saleInfo']['saleability'] != 'NOT_FOR_SALE':
                             series_info = self._get_series_from_googlebooks(item['id'])
                             item["volumeInfo"]["series"] = series_info['series']
-                            item["volumeInfo"]["volume"] = series_info['series']
+                            item["volumeInfo"]["volume"] = series_info['volume']
                             return item
                 else:
                     from difflib import SequenceMatcher
