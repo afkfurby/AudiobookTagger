@@ -23,7 +23,7 @@ class FileMetadata:
 
     }
 
-    UPDATABLE_TAGS = ["author", "title", "subtitle", "publisher", "year", "narrator", "description", "genres", "series", "volume"]
+    UPDATABLE_TAGS = ["Author", "Title", "Subtitle", "Publisher", "Year", "Narrator", "Description", "Genres", "Series", "Volume"]
 
     def __init__(self, filepath):
         self.file = music_tag.load_file(filepath)

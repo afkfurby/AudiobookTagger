@@ -4,6 +4,7 @@ import music_tag
 from music_tag.file import TAG_MAP_ENTRY, Artwork
 
 from audiobookorganizer.metadata.GoogleBooks import Provider as GoogleBooksProvider
+from audiobookorganizer.metadata.Audible import Provider as AudibleProvider
 
 
 """
@@ -190,6 +191,37 @@ class MetadataDict(UserDict):
                 # "totaldiscs": None,
                 "isbn13": safeget(result["volumeInfo"], "industryIdentifiers")[0]["identifier"]
             })
+
+        else:
+            return MetadataDict()
+
+    @staticmethod
+    def from_audible(author, title):
+        metadataprovider = AudibleProvider()
+        results = metadataprovider.search(author=author, title=title)
+
+        if results is not None or results['totalResults'] == 0:
+            if results['totalResults'] == 1 or True:  # TODO: handle multiple results
+                result = results['items'][0]
+
+                return MetadataDict({
+                    "Title": safeget(result, "title"),
+                    "Subtitle": safeget(result, "subtitle"),
+                    "Author": safeget(result, "author"),
+                    # "Narrator": None,
+                    "Publisher": safeget(result, "publisher"),
+                    "Year": safeget(result, "release_date").year,
+                    "Description": safeget(result, "description"),
+                    "Genres": safeget(result, "categories"),
+                    "Series": safeget(result, "series"),
+                    "Volume": safeget(result, "volume"),
+                    "Cover": [safeget(result, "cover")],
+                    # "tracknumber": None,
+                    # "totaltracks": None,
+                    # "discnumber": None,
+                    # "totaldiscs": None,
+                    # "isbn13": safeget(result, "industryIdentifiers")[0]["identifier"]
+                })
 
         else:
             return MetadataDict()
