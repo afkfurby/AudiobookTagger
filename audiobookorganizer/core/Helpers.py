@@ -50,7 +50,7 @@ class MetadataDict(UserDict, dict):
         "Cover": None,
         "tracknumber": None,
         "totaltracks": None,
-        "discnumber": None,
+        # "discnumber": None,
         "totaldiscs": None,
     })
 
@@ -83,34 +83,83 @@ class MetadataDict(UserDict, dict):
     # def __repr__(self):
     #     return '<MetadataDict ' + super.__repr__(self) + '>'
 
-    def __setitem__(self, item, value, force=False):
-        if item in super().keys(): # key exists
-            if super().__getitem__(item) is None:  # not set yet
-                self._changed = True
-                super().__setitem__(item, value)
-            elif item in ["Genres", "Cover"]:
-                if isinstance(super().__getitem__(item), list):
-                    if isinstance(value, list):
-                        self._changed = True
-                        super().__setitem__(item, super().__getitem__(item) + value)
-                    else:
-                        self._changed = True
-                        super().__setitem__(item, super().__getitem__(item).append(value))
-                else:
-                    if value is not None:
-                        self._changed = True
-                        super().__setitem__(item, [super().__getitem__(item)] + value)
+    def __setitem__(self, item, value):
+        if item in super().keys():  # key exists
+            if super().__getitem__(item) is not None:
+                if value is not None:
+                    if self._FORCEUPDATE or isinstance(super().__getitem__(item), list):
+                        if isinstance(super().__getitem__(item), list):
+                            if isinstance(value, list):
+                                self._changed = True
+                                super().__setitem__(item, super().__getitem__(item) + value)
+                            else:
 
+                                if value not in super().__getitem__(item):
+                                    self._changed = True
+                                    super().__setitem__(item, super().__getitem__(item) + [value])
+                        else:
+                            self._changed = True
+                            super().__setitem__(item, value)
+                    if item in ["Genres"]:
+                        if isinstance(super().__getitem__(item), list):
+                            if isinstance(value, list):
+                                self._changed = True
+                                super().__setitem__(item, super().__getitem__(item) + value)
+                            else:
+                                if value not in super().__getitem__(item):
+                                    self._changed = True
+                                    super().__setitem__(item, super().__getitem__(item) + [value])
+                        else:
+                            if isinstance(value, list):
+                                self._changed = True
+                                super().__setitem__(item, [super().__getitem__(item)] + value)
+                            else:
+                                self._changed = True
+                                super().__setitem__(item, [super().__getitem__(item)] + [value])
+
+            else: # if current value is none -> override
                 self._changed = True
-            elif isinstance(super().__getitem__(item), int) and super().__getitem__(item) == 0:
                 super().__setitem__(item, value)
+
         else:
             self._changed = True
             super().__setitem__(item, value)
 
-        if self._FORCEUPDATE and value is not None:
-            self._changed = True
-            super().__setitem__(item, value)
+
+        # if item == "Genres":
+        #     print("genr")
+        #
+        # if self._FORCEUPDATE and value is not None:
+        #     if value is None:
+        #         pass
+        #     else:
+        #         self._changed = True
+        #         super().__setitem__(item, value)
+        # elif item in super().keys(): # key exists
+        #     if super().__getitem__(item) is None:  # not set yet
+        #         self._changed = True
+        #         super().__setitem__(item, value)
+        #     elif item in ["Genres", "Cover"]:
+        #         if isinstance(super().__getitem__(item), list):
+        #             if isinstance(value, list):
+        #                 self._changed = True
+        #                 super().__setitem__(item, super().__getitem__(item) + value)
+        #             else:
+        #                 self._changed = True
+        #                 super().__setitem__(item, super().__getitem__(item).append(value))
+        #         else:
+        #             if value is not None:
+        #                 self._changed = True
+        #                 super().__setitem__(item, [super().__getitem__(item)] + value)
+        #
+        #         self._changed = True
+        #     elif isinstance(super().__getitem__(item), int) and super().__getitem__(item) == 0:
+        #         super().__setitem__(item, value)
+        # else:
+        #     self._changed = True
+        #     super().__setitem__(item, value)
+
+
 
     def override(self, item, value):
         if item in super().keys():  # existing key
@@ -120,7 +169,7 @@ class MetadataDict(UserDict, dict):
     def forceupdate(self, d):  # dirty
         self._FORCEUPDATE = True
         self.update(d)
-        self._FORCEUPDATE = True
+        self._FORCEUPDATE = False
 
     def __delitem__(self, item):
         super().__delitem__(item)
@@ -146,18 +195,34 @@ class MetadataDict(UserDict, dict):
     def export_cover(self, path, index=0, case_sensitive=False):
         # f['artwork'].first.image.save("./data/cover.jpg")
         if super().__getitem__("Cover") is not None:
-            if isinstance(super().__getitem__("Cover"),Artwork) or len(super().__getitem__("Cover")) == 1:
+            if isinstance(super().__getitem__("Cover"), list): # is list
+                self._getimage(super().__getitem__("Cover")[0]).save(os.path.join(path, "cover.jpg"))
+
+                if case_sensitive:
+                    self._getimage(super().__getitem__("Cover")[0]).save(os.path.join(path, "Cover.jpg"))
+
+                return True
+            else:
                 self._getimage(super().__getitem__("Cover")).save(os.path.join(path, "cover.jpg"))
                 if case_sensitive:
                     self._getimage(super().__getitem__("Cover")).save(os.path.join(path, "Cover.jpg"))
 
                 return True
-            else:
-                self._getimage(super().__getitem__("Cover")[index]).save(os.path.join(path, "cover.jpg"))
-                if case_sensitive:
-                    self._getimage(super().__getitem__("Cover")[index]).save(os.path.join(path, "Cover.jpg"))
 
-                return True
+
+            # if isinstance(super().__getitem__("Cover"), Artwork) or len(super().__getitem__("Cover")) == 1:
+            #     if isinstance()
+            #     self._getimage(super().__getitem__("Cover")).save(os.path.join(path, "cover.jpg"))
+            #     if case_sensitive:
+            #         self._getimage(super().__getitem__("Cover")).save(os.path.join(path, "Cover.jpg"))
+            #
+            #     return True
+            # else:
+            #     self._getimage(super().__getitem__("Cover")[index]).save(os.path.join(path, "cover.jpg"))
+            #     if case_sensitive:
+            #         self._getimage(super().__getitem__("Cover")[index]).save(os.path.join(path, "Cover.jpg"))
+            #
+            #     return True
 
         return False
 
