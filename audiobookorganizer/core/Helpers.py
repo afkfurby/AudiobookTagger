@@ -16,7 +16,7 @@ meta = MetadataDict({"Title": "Original Title", "Author": "Furby Haxx"})
 # TAG_MAP_ENTRY = namedtuple('TAG_MAP_ENTRY', ('getter', 'setter', 'remover',
 #                                              'type', 'sanitizer'))
 
-class MetadataDict(UserDict):
+class MetadataDict(UserDict, dict):
     _TAGMAP = {
         "Author": "artist",
         "Title": "tracktitle",
@@ -26,12 +26,12 @@ class MetadataDict(UserDict):
         "Narrator": "composer",
         "Description": ["description", "comment"],
         "Genres": "genre",
-        "Series": "series",
-        "Volume": "series-part",
+        "Series": "album", #"series",
+        "Volume": "discnumber", #"series-part",
         "Cover": "artwork",
         "tracknumber": "tracknumber",
         "totaltracks": "totaltracks",
-        "discnumber": "discnumber",
+        # "discnumber": "discnumber",
         "totaldiscs": "totaldiscs",
 
     }
@@ -56,6 +56,7 @@ class MetadataDict(UserDict):
 
     def __init__(self, val=None):
         defaults = MetadataDict._DEFAULTS.copy()
+        self._FORCEUPDATE = False
 
         if val is not None:
             defaults.update(val)
@@ -68,7 +69,7 @@ class MetadataDict(UserDict):
 
     def __setattr__(self, attr: str, val: str) -> None:
         # print(attr)
-        if attr in ['store', 'data', '_changed']:
+        if attr in ['store', 'data', '_changed', "_FORCEUPDATE"]:
             super().__setattr__(attr, val)
         else:
             self.__setitem__(attr, val)
@@ -82,7 +83,7 @@ class MetadataDict(UserDict):
     # def __repr__(self):
     #     return '<MetadataDict ' + super.__repr__(self) + '>'
 
-    def __setitem__(self, item, value):
+    def __setitem__(self, item, value, force=False):
         if item in super().keys(): # key exists
             if super().__getitem__(item) is None:  # not set yet
                 self._changed = True
@@ -101,7 +102,13 @@ class MetadataDict(UserDict):
                         super().__setitem__(item, [super().__getitem__(item)] + value)
 
                 self._changed = True
+            elif isinstance(super().__getitem__(item), int) and super().__getitem__(item) == 0:
+                super().__setitem__(item, value)
         else:
+            self._changed = True
+            super().__setitem__(item, value)
+
+        if self._FORCEUPDATE and value is not None:
             self._changed = True
             super().__setitem__(item, value)
 
@@ -109,6 +116,11 @@ class MetadataDict(UserDict):
         if item in super().keys():  # existing key
             self._changed = True
             super().__setitem__(item, value)
+
+    def forceupdate(self, d):  # dirty
+        self._FORCEUPDATE = True
+        self.update(d)
+        self._FORCEUPDATE = True
 
     def __delitem__(self, item):
         super().__delitem__(item)
@@ -265,7 +277,7 @@ class MetadataDict(UserDict):
                 f = super().__getitem__("_File")
                 # f = music_tag.load_file(f)
             else:
-                pass # should throw error
+                pass  # should throw error
         else:
             f = music_tag.load_file(file)
 
