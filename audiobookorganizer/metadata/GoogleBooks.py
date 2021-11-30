@@ -19,7 +19,7 @@ import cli_ui as ui
 class Provider(MetadataProvider):
     _APIURL = 'https://www.googleapis.com/books/v1'
 
-    def __init__(self, api_key="", lang="de"):
+    def __init__(self, api_key="AIzaSyC016ESjNILKeicAj3bPUKmOHYLqBxiDv0", lang="de"):
         ui.setup(color="always")
         self._APIKEY = api_key
         super(Provider, self).__init__(api_key, lang)

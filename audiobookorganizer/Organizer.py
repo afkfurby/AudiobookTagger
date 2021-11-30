@@ -195,7 +195,7 @@ class App:
             path = path.replace(c, '')
         return path
 
-    def _walk_path(self, path, output=None, dryrun=True, confirm_action=True):
+    def _walk_path(self, path, output=None, dryrun=True, confirm_action=True, writetags=True, createfolders=True, move=True):
         for root, d_names, f_names in os.walk(path):
             if not has_subfolders(root):  # no more subfolders, here should be audio files
                 if root == path:
@@ -248,11 +248,71 @@ class App:
                 else:  # folder structure
                     folders = self._get_folders_from_path(root, path)
 
-                    print(folders)
+                    if len(folders) == 1:  # only book name
+                        title = folders[0]
+                        author = None
+                        series = None
+                    elif len(folders) == 2:  # author and books name
+                        author = folders[0]
+                        title = folders[1]
+                        series = None
+                    elif len(folders) == 3:  # author, series, bookname
+                        author = folders[0]
+                        series = folders[1]
+                        title = folders[2]
 
-    def _generate_folder_structure(self, path, file, metadata, output=None, save_cover=True, move=True, dryrun=True):  # if move=False, file will be copied
+                    for file in f_names:
+                        if get_filetype(os.path.join(root, file))[0] == "audio":
+
+                            meta = MetadataDict({
+                                "Author": author,
+                                "Title": title,
+                                "Series": series
+                            })
+
+                            meta = MetadataDict.from_file(os.path.join(root, file), defaults=meta)
+                            audiblemeta = MetadataDict.from_audible(meta.Author, meta.Title)
+                            gbmeta = MetadataDict.from_googlebooks(meta.Author, meta.Title)
+
+                            meta_new = meta.copy()
+                            meta_new.update(gbmeta)
+                            meta_new.forceupdate(audiblemeta)  # force audible metadata
+
+                            ui.info("Book:", ui.bold, meta.Title, ui.reset, "from", ui.bold, meta.Author)
+
+                            self._show_changes_table(meta, meta_new)
+
+                            if writetags:
+                                if not dryrun:
+                                    if confirm_action:
+                                        yn = ui.ask_yes_no("Should I save those tags to file?", default=True)
+                                        if yn:
+                                            meta_new.save_to_file()
+                                    else:
+                                        ui.info("writing tags to file")
+                                        meta_new.save_to_file()
+                                else:
+                                    ui.warning(ui.bold, "[DRYRUN]", ui.reset, "Writing tags")
+
+                            self._generate_folder_structure(root, file, meta_new,
+                                                            output=output,
+                                                            dryrun=dryrun,
+                                                            createfolders=createfolders,
+                                                            move=move,
+                                                            confirm_action=confirm_action
+                                                            )
+
+                            # if createfolders:
+                            #     if not dryrun:
+                            #         if confirm_action:
+                            #             yn = ui.ask_yes_no("Should I create the folder structure?", default=True)
+                            #     else:
+                            #         ui.warning(ui.bold, "[DRYRUN]", ui.reset, "Creating folderstructure")
+
+                            # print("test")
 
 
+    def _generate_folder_structure(self, path, file, metadata, output=None, save_cover=True, move=True, dryrun=True, confirm_action=False, createfolders=True):  # if move=False, file will be copied
 
         if metadata.Series is None:
             fullpath = os.path.join(path if output is None else output,
@@ -265,30 +325,50 @@ class App:
                                     self._make_path_segment_compatible(metadata.Title)
                                     )
 
-        if not dryrun:
-            ui.info("Creating path:", fullpath)
-            Path(fullpath).mkdir(parents=True, exist_ok=True)
-
-        if save_cover and not dryrun:
-            ui.info("Saving metadata to file:")
-            metadata.export_cover(fullpath, case_sensitive=True)  # save cover file
-        else:
-            ui.warning("[DRYRUN] saving cover ", ui.green, os.path.join(fullpath, "cover.jpg"))
-
-        if move:
+        if createfolders:
             if not dryrun:
-                ui.warning("moving ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green,
+                if confirm_action:
+                    ui.info("Folder Structure:", fullpath)
+                    yn = ui.ask_yes_no("Should I create the folder structure?", default=True)
+                    if yn:
+                        Path(fullpath).mkdir(parents=True, exist_ok=True)
+                else:
+                    ui.info("Creating folders:", fullpath)
+                    Path(fullpath).mkdir(parents=True, exist_ok=True)
+            else:
+                ui.warning(ui.bold, "[DRYRUN]", ui.reset, "Creating folderstructure", ui.bold, fullpath)
+
+        if save_cover and move is not False:
+            if not dryrun:
+                if confirm_action:
+                    yn = ui.ask_yes_no("Should I export cover image?", default=True)
+                    if yn:
+                        metadata.export_cover(fullpath, case_sensitive=True)  # save cover file
+                else:
+                    metadata.export_cover(fullpath, case_sensitive=True)  # save cover file
+
+                ui.info("Saving cover to", ui.bold, fullpath + "/cover.jpg")
+            else:
+                ui.warning(ui.bold, "[DRYRUN]", ui.reset, "Saving cover to", ui.bold, fullpath + "cover.jpg")
+
+
+        if not createfolders or not move:
+            ui.info("No moving or copying")
+        else:
+            if move:
+                if not dryrun:
+                    ui.warning("moving ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green,
+                               os.path.join(fullpath, file))
+                    os.rename(os.path.join(path, file), os.path.join(fullpath, file))
+                else:
+                    ui.warning("[DRYRUN] move ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green, os.path.join(fullpath, file))
+            else:
+                import shutil
+                if not dryrun:
+                    shutil.copy2(os.path.join(path, file), os.path.join(fullpath, file))
+                else:
+                    ui.warning("[DRYRUN] copy ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green,
                            os.path.join(fullpath, file))
-                os.rename(os.path.join(path, file), os.path.join(fullpath, file))
-            else:
-                ui.warning("[DRYRUN] move ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green, os.path.join(fullpath, file))
-        else:
-            import shutil
-            if not dryrun:
-                shutil.copy2(os.path.join(path, file), os.path.join(fullpath, file))
-            else:
-                ui.warning("[DRYRUN] copy ", ui.bold, os.path.join(path, file), ui.reset, "-->", ui.green,
-                       os.path.join(fullpath, file))
 
     def _iterate_files(self, files, callback):
         for file in files:
@@ -302,16 +382,30 @@ class App:
         default_path = "\\\\10.1.1.210\\media\\audio\\audio_books"
         default_path = "C:\\Users\\Vital\\OpenAudible\\books"
         default_path = "C:\\PyCharmProjects\\googlebooks\\data"
-        default_path = "\\\\10.1.1.210\\media\\audio\\audio_books_audible"
+        default_path = "\\\\10.1.1.210\\media\\audio\\audio_books"
         # default_output = None
-        default_output = "\\\\10.1.1.210\\media\\audio\\audible_organized"
+        default_output = "\\\\10.1.1.210\\media\\audio\\audiobooks_organized"
 
         path = ui.ask_string("Enter path to your audiobooks", default=default_path)
         output = ui.ask_string("Enter path to your output directory", default=default_output)
         dryrun = ui.ask_yes_no("Should we enable dry run?", default=True)
         confirm_action = ui.ask_yes_no("Do you wanna confirm every action I suggest?", default=True)
+
+        writetags = ui.ask_yes_no("Should I write the tags to file?", default=True)
+        createfolders = ui.ask_yes_no("Should I create the new folder structure?", default=True)
+        move = ui.ask_yes_no("Should I move the files?", default=True)
+
         ui.info("Checking tags in", ui.bold, path)
-        self._walk_path(path, output=output, dryrun=dryrun, confirm_action=confirm_action)
+        self._walk_path(path,
+                        output=output,
+                        dryrun=dryrun,
+                        confirm_action=confirm_action,
+                        writetags=writetags,
+                        createfolders=createfolders,
+                        move=move
+                        )
+
+        # output = None, dryrun = True, confirm_action = True, writetags = True, createfolders = True, move = True
 
     def run(self):
         ui.setup(color="always")
