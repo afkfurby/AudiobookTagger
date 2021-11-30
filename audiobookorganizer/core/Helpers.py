@@ -134,7 +134,7 @@ class MetadataDict(UserDict):
     def export_cover(self, path, index=0, case_sensitive=False):
         # f['artwork'].first.image.save("./data/cover.jpg")
         if super().__getitem__("Cover") is not None:
-            if len(super().__getitem__("Cover")) == 1:
+            if isinstance(super().__getitem__("Cover"),Artwork) or len(super().__getitem__("Cover")) == 1:
                 self._getimage(super().__getitem__("Cover")).save(os.path.join(path, "cover.jpg"))
                 if case_sensitive:
                     self._getimage(super().__getitem__("Cover")).save(os.path.join(path, "Cover.jpg"))
@@ -152,8 +152,12 @@ class MetadataDict(UserDict):
     @staticmethod
     def from_googlebooks(author, title):
         metadataprovider = GoogleBooksProvider()
-        result = metadataprovider.search(author=author, title=title,
+
+        try:
+            result = metadataprovider.search(author=author, title=title,
                                                getfirst=True, rawresult=True)
+        except:
+            return MetadataDict()
 
         if result is not None:
             from datetime import datetime
@@ -248,6 +252,10 @@ class MetadataDict(UserDict):
 
         defaults.update(default)
         meta = MetadataDict(defaults)
+
+        # f.close()
+        # del f
+
         meta['_File'] = f
         return meta
 
@@ -255,6 +263,7 @@ class MetadataDict(UserDict):
         if file is None:
             if "_File" in super().keys():
                 f = super().__getitem__("_File")
+                # f = music_tag.load_file(f)
             else:
                 pass # should throw error
         else:
@@ -262,7 +271,7 @@ class MetadataDict(UserDict):
 
         for key in super().keys():
             if key not in ['store', 'data', '_changed', "_File"]:
-                if super().__getitem__(key) is not None:
+                if super().__getitem__(key) is not None and key in MetadataDict._TAGMAP.keys():
 
                     # TODO: find out how to write new tags to m4b file (eg. subtitle, isbn)
                     # if key not in f.tag_map:
@@ -270,8 +279,52 @@ class MetadataDict(UserDict):
                     #         f.tag_map[key.lower()] = TAG_MAP_ENTRY(getter='©nam', setter='©nam', type=int)
                     #     else:
                     #         f.tag_map[key.lower()] = TAG_MAP_ENTRY(getter='©nam', setter='©nam', type=str)
-                    if key in f.tag_map:
-                        f[MetadataDict._TAGMAP[key]] = super().__getitem__(key)
+                    if isinstance(MetadataDict._TAGMAP[key], list):
+                        if all(item in MetadataDict._TAGMAP[key] for item in f.tag_map):
+                            for i in MetadataDict._TAGMAP[key]:
+                                f[i] = super().__getitem__(key)
+                    else:
+                        if MetadataDict._TAGMAP[key] in f.tag_map:
+                            if key != "Cover":
+                                if isinstance(super().__getitem__(key), str):
+                                    f[MetadataDict._TAGMAP[key]] = str(super().__getitem__(key)).encode("utf-8").decode()
+                                else:
+                                    f[MetadataDict._TAGMAP[key]] = super().__getitem__(key)
+
+                            else:
+                                import io
+                                # images = []
+
+                                if isinstance(super().__getitem__(key), list):
+                                    first = True
+
+                                    for image in super().__getitem__(key):
+                                        if isinstance(image, Artwork):
+                                            if first:
+                                                f[MetadataDict._TAGMAP[key]] = image
+                                                first = False
+                                            else:
+                                                # f[MetadataDict._TAGMAP[key]].append_tag(image)
+                                                f.append_tag(MetadataDict._TAGMAP[key], image)
+                                        else:
+                                            img_byte_arr = io.BytesIO()
+                                            image.save(img_byte_arr, format='JPEG')
+                                            if first:
+                                                f[MetadataDict._TAGMAP[key]] = img_byte_arr.getvalue()
+                                                first = False
+                                            else:
+                                                f.append_tag(MetadataDict._TAGMAP[key], img_byte_arr.getvalue())
+                                else:
+                                    if isinstance(super().__getitem__(key), Artwork):
+                                        f[MetadataDict._TAGMAP[key]] = super().__getitem__(key)
+                                    else:
+                                        img_byte_arr = io.BytesIO()
+                                        super().__getitem__(key).save(img_byte_arr, format='JPEG')
+                                        f[MetadataDict._TAGMAP[key]] = img_byte_arr.getvalue()
+
+
+
+
 
         f.save()
 

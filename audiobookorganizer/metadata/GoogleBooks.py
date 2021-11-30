@@ -21,15 +21,21 @@ class Provider(MetadataProvider):
 
     def __init__(self, api_key="", lang="de"):
         ui.setup(color="always")
+        self._APIKEY = api_key
         super(Provider, self).__init__(api_key, lang)
+
+        # api info
 
     """
     """
 
     def _get(self, path, params=None):
         if params is None:
-            params = {}
+            params = {
+                "key": self._APIKEY
+            }
         else:
+            params['key'] = self._APIKEY
             command = "?"
             first = True
             for key, value in params.items():
