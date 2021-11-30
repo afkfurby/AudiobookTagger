@@ -209,8 +209,9 @@ class App:
                             # print(gbmeta)
 
                             meta_new = filemeta.copy()
-                            meta_new.update(audiblemeta)
                             meta_new.update(gbmeta)
+                            meta_new.forceupdate(audiblemeta)  # force audible metadata
+
 
                             ui.info("Book:", filemeta.Title, "from", filemeta.Author)
 
