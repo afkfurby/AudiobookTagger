@@ -25,7 +25,7 @@ class App:
 
     def main_menu(self):
         tasks = [
-            App._MENU_ITEM_CHECK_TAGS,
+            # App._MENU_ITEM_CHECK_TAGS,
             App._MENU_ITEM_ORGANIZE,
             App._MENU_ITEM_EXIT
         ]
@@ -167,11 +167,33 @@ class App:
                             str(meta_new[key])[:40] + '..' if len(str(meta_new[key])) > 40 else meta_new[key]  # value col2
                         ),  # col3
                     ))
+                else:  # is this tag different than before? (Maybe keep track of changed tags inside MetadataDict)
+                    data.append((
+                        (
+                            ui.bold,    # color col1
+                            key         # value col1
+                        ),  # col1
+                        (
+                            ui.reset,  # color col2
+                            str(meta_orig[key])[:40] + '..' if len(str(meta_orig[key])) > 40 else meta_orig[key]  # value col2
+
+                        ),  # col2
+                        (
+                            ui.reset,  # color col2
+                            ""  # value col2
+                        ),  # col3
+                    ))
 
         if len(data) > 0:
             ui.info_table(data, headers=headers)
         else:
             ui.info("Book:", meta_orig.Title, "from", meta_orig.Author, "has not changed")
+
+    def _make_path_segment_compatible(self, path, deletechars='\/:*?"<>|'):
+
+        for c in deletechars:
+            path = path.replace(c, '')
+        return path
 
     def _walk_path(self, path, output=None, dryrun=True, confirm_action=True):
         for root, d_names, f_names in os.walk(path):
@@ -198,6 +220,10 @@ class App:
                             # filemeta.update(gbmeta)
                             # print(filemeta)
 
+                            if not meta_new.has_changed():
+                                if ui.ask_yes_no("No metadata found, should I skip this book for now?", default=True):
+                                    continue
+
 
 
 
@@ -216,7 +242,7 @@ class App:
                             if not dryrun:
                                 filemeta.save_to_file()
 
-                            self._generate_folder_structure(root if output is None else output, file, filemeta, output=output, dryrun=dryrun)
+                            self._generate_folder_structure(root, file, filemeta, output=output, dryrun=dryrun)
 
                 else:  # folder structure
                     folders = self._get_folders_from_path(root, path)
@@ -225,10 +251,18 @@ class App:
 
     def _generate_folder_structure(self, path, file, metadata, output=None, save_cover=True, move=True, dryrun=True):  # if move=False, file will be copied
 
+
+
         if metadata.Series is None:
-            fullpath = os.path.join(path, metadata.Author, metadata.Title)
+            fullpath = os.path.join(path if output is None else output,
+                                    self._make_path_segment_compatible(metadata.Author),
+                                    self._make_path_segment_compatible(metadata.Title))
         else:
-            fullpath = os.path.join(path, metadata.Author, metadata.Series, metadata.Title)
+            fullpath = os.path.join(path if output is None else output,
+                                    self._make_path_segment_compatible(metadata.Author),
+                                    self._make_path_segment_compatible(metadata.Series),
+                                    self._make_path_segment_compatible(metadata.Title)
+                                    )
 
         if not dryrun:
             ui.info("Creating path:", fullpath)
@@ -268,9 +302,13 @@ class App:
         default_path = "C:\\Users\\Vital\\OpenAudible\\books"
         default_path = "C:\\PyCharmProjects\\googlebooks\\data"
         default_path = "\\\\10.1.1.210\\media\\audio\\audio_books_audible"
+        # default_output = None
         default_output = "\\\\10.1.1.210\\media\\audio\\audible_organized"
+
         path = ui.ask_string("Enter path to your audiobooks", default=default_path)
         output = ui.ask_string("Enter path to your output directory", default=default_output)
+        dryrun = ui.ask_yes_no("Should we enable dry run?", default=True)
+        confirm_action = ui.ask_yes_no("Do you wanna confirm every action I suggest?", default=True)
         ui.info("Checking tags in", ui.bold, path)
         self._walk_path(path, output=output, dryrun=dryrun, confirm_action=confirm_action)
 
