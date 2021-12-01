@@ -85,3 +85,9 @@ def get_series_from_googlebooks(id):
         "volume": volume,
         "series": series,
     }
+
+
+ILLEGAL_NTFS_CHARS = "[<>:/\\|?*\"]|[\0-\31]"
+def removeIllegalPathChars(name):
+    # removes characters that are invalid for NTFS
+    return re.sub(ILLEGAL_NTFS_CHARS, "", name)

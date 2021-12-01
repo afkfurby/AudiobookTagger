@@ -164,7 +164,7 @@ class App:
                         ),  # col2
                         (
                             ui.green,  # color col2
-                            str(meta_new[key])[:40] + '..' if len(str(meta_new[key])) > 40 else meta_new[key]  # value col2
+                            (str(meta_new[key])[:40] + '..' if len(str(meta_new[key])) > 40 else meta_new[key]) if not isinstance(meta_new[key], list) else list(set(meta_new[key]))   # value col2
                         ),  # col3
                     ))
                 else:  # is this tag different than before? (Maybe keep track of changed tags inside MetadataDict)
@@ -287,7 +287,7 @@ class App:
                                     if confirm_action:
                                         yn = ui.ask_yes_no("Should I save those tags to file?", default=True)
                                         if yn:
-                                            meta_new.save_to_file()
+                                            meta_new.save_to_file(meta["file"].filename)
                                     else:
                                         ui.info("writing tags to file")
                                         meta_new.save_to_file()
