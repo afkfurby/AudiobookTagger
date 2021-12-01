@@ -320,6 +320,8 @@ class MetadataDict(UserDict, dict):
             try:
                 if key == "Cover":
                     default[key] = f[value].value
+                elif key == "Genres":
+                    default[key] = list()
                 else:
                     default[key] = f[value].value
             except:
@@ -334,7 +336,11 @@ class MetadataDict(UserDict, dict):
         # del f
 
         meta['_File'] = f
+        meta['file'] = f
         return meta
+
+    def get_file(self):
+        return
 
     def save_to_file(self, file=None):
         if file is None:
@@ -365,6 +371,8 @@ class MetadataDict(UserDict, dict):
                             if key != "Cover":
                                 if isinstance(super().__getitem__(key), str):
                                     f[MetadataDict._TAGMAP[key]] = str(super().__getitem__(key)).encode("utf-8").decode()
+                                elif isinstance(super().__getitem__(key), list):
+                                    f[MetadataDict._TAGMAP[key]] = list(set(super().__getitem__(key)))
                                 else:
                                     f[MetadataDict._TAGMAP[key]] = super().__getitem__(key)
 
