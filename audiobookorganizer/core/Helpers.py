@@ -6,13 +6,14 @@ from music_tag.file import TAG_MAP_ENTRY, Artwork
 from audiobookorganizer.metadata.GoogleBooks import Provider as GoogleBooksProvider
 from audiobookorganizer.metadata.Audible import Provider as AudibleProvider
 
-
 """
 MetadataDict
 from audiobookorganizer.core.Helpers import MetadataDict
 # MetadataDict({})
 meta = MetadataDict({"Title": "Original Title", "Author": "Furby Haxx"})
 """
+
+
 # TAG_MAP_ENTRY = namedtuple('TAG_MAP_ENTRY', ('getter', 'setter', 'remover',
 #                                              'type', 'sanitizer'))
 
@@ -26,8 +27,8 @@ class MetadataDict(UserDict, dict):
         "Narrator": "composer",
         "Description": ["description", "comment"],
         "Genres": "genre",
-        "Series": "album", #"series",
-        "Volume": "discnumber", #"series-part",
+        "Series": "album",  # "series",
+        "Volume": "discnumber",  # "series-part",
         "Cover": "artwork",
         "tracknumber": "tracknumber",
         "totaltracks": "totaltracks",
@@ -117,14 +118,13 @@ class MetadataDict(UserDict, dict):
                                 self._changed = True
                                 super().__setitem__(item, [super().__getitem__(item)] + [value])
 
-            else: # if current value is none -> override
+            else:  # if current value is none -> override
                 self._changed = True
                 super().__setitem__(item, value)
 
         else:
             self._changed = True
             super().__setitem__(item, value)
-
 
         # if item == "Genres":
         #     print("genr")
@@ -159,8 +159,6 @@ class MetadataDict(UserDict, dict):
         #     self._changed = True
         #     super().__setitem__(item, value)
 
-
-
     def override(self, item, value):
         if item in super().keys():  # existing key
             self._changed = True
@@ -188,14 +186,13 @@ class MetadataDict(UserDict, dict):
         else:
             return item
 
-
     def has_changed(self):
         return self._changed
 
     def export_cover(self, path, index=0, case_sensitive=False):
         # f['artwork'].first.image.save("./data/cover.jpg")
         if super().__getitem__("Cover") is not None:
-            if isinstance(super().__getitem__("Cover"), list): # is list
+            if isinstance(super().__getitem__("Cover"), list):  # is list
                 self._getimage(super().__getitem__("Cover")[0]).save(os.path.join(path, "cover.jpg"))
 
                 if case_sensitive:
@@ -208,7 +205,6 @@ class MetadataDict(UserDict, dict):
                     self._getimage(super().__getitem__("Cover")).save(os.path.join(path, "Cover.jpg"))
 
                 return True
-
 
             # if isinstance(super().__getitem__("Cover"), Artwork) or len(super().__getitem__("Cover")) == 1:
             #     if isinstance()
@@ -232,7 +228,7 @@ class MetadataDict(UserDict, dict):
 
         try:
             result = metadataprovider.search(author=author, title=title,
-                                               getfirst=True, rawresult=True)
+                                             getfirst=True, rawresult=True)
         except:
             return MetadataDict()
 
@@ -370,7 +366,8 @@ class MetadataDict(UserDict, dict):
                         if MetadataDict._TAGMAP[key] in f.tag_map:
                             if key != "Cover":
                                 if isinstance(super().__getitem__(key), str):
-                                    f[MetadataDict._TAGMAP[key]] = str(super().__getitem__(key)).encode("utf-8").decode()
+                                    f[MetadataDict._TAGMAP[key]] = str(super().__getitem__(key)).encode(
+                                        "utf-8").decode()
                                 elif isinstance(super().__getitem__(key), list):
                                     f[MetadataDict._TAGMAP[key]] = list(set(super().__getitem__(key)))
                                 else:
@@ -407,9 +404,8 @@ class MetadataDict(UserDict, dict):
                                         super().__getitem__(key).save(img_byte_arr, format='JPEG')
                                         f[MetadataDict._TAGMAP[key]] = img_byte_arr.getvalue()
 
-
-
-
+        for key, value in f.tag_map.items():
+            print(f'{key} = {f[key]}')
 
         f.save()
 
