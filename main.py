@@ -47,8 +47,8 @@ def audible():
 
     # Authorize and register in one step
     auth = audible.Authenticator.from_login(
-        "furbyhaxx@gmail.com",
-        "4FK.studio$",
+        "***REMOVED***",
+        "***REMOVED***",
         locale="DE",
         with_username=True
     )
